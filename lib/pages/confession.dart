@@ -9,11 +9,15 @@ class ConfessionList extends StatefulWidget {
 
 class _ConfessionListState extends State<ConfessionList>
     with SingleTickerProviderStateMixin {
-  TabController _tabController; //需要定义一个Controller
+
+  TabController _tabController;//需要定义一个Controller
   List<Widget> _tabs;
+  List<String> list = [];
+
   @override
   void initState() {
     super.initState();
+
     //初始化tabs
     _tabs = [
       Tab(child: Text('推荐',style: TextStyle(fontSize:16.0))),
@@ -34,47 +38,97 @@ class _ConfessionListState extends State<ConfessionList>
                 isScrollable: true,
                 indicatorSize: TabBarIndicatorSize.label,
                 labelPadding: EdgeInsets.fromLTRB(15, 4, 15, 1),
-                tabs:_tabs
+                tabs:_tabs,
+                onTap: (i){
+                  setState(() {
+                    list = [];
+                  });
+                },
             ),
           actions: <Widget>[
             IconButton(icon: new Icon(Icons.add), onPressed: () {})
           ],
         ),
         body: TabBarView(
-          controller: _tabController,
-          children: [
-            _buildCardList(),
-            _buildCardList(),
-            _buildCardList()
-          ],
+              controller: _tabController,
+              children: [
+                _buildRefreshIndicator(),
+                _buildRefreshIndicator(),
+                _buildRefreshIndicator(),
+              ],
         )
+    );
+  }
+  Widget _buildRefreshIndicator(){
+    return RefreshIndicator(
+        onRefresh: _onRefresh,
+        displacement: 25.0,
+        color: Colors.orange,
+        child: _buildCardList()
     );
   }
 
   Widget _buildCardList() {
-    //循环构建card List
+    List<Widget> cardList = [];
+    list.forEach((text) => cardList.add(new ConfessionCard(text)));
     return ListView(
-        children: List<Widget>.generate(10, (i) {
-          return ConfessionCard();
-        }));
+        children: cardList
+    );
+  }
+  Future<Null> _onRefresh() async {
+    await Future.delayed(Duration(seconds: 3), () {
+      print('refresh');
+      setState(() {
+        list = List.generate(10, (i) => '哈喽$i,我是新刷新的该方法只有两个参数，含义见注释该方法返回一个'+DateTime.now().toString());
+      });
+    });
   }
 }
 
 class ConfessionCard extends StatelessWidget {
+  String _text;
+
+  ConfessionCard(String text){
+    this._text = text;
+  }
+
   @override
   Widget build(BuildContext context) {
     return IntrinsicHeight(
-      child: Card(
-        margin: EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 4.0),
-        child: new Column(
-          children: [
-            new CardHead(),
-            new CardText(),
-            new CardImg(),
-            new CardFoot()
-          ],
+      child: GestureDetector(
+        child: Card(
+          margin: EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 4.0),
+          child: new Column(
+            children: [
+              new CardHead(),
+              new CardText(this._text),
+              new CardImg(),
+              new CardFoot()
+            ],
+          ),
         ),
-      ),
+        onTap: () async {
+          await showDialog1(context,this._text);
+        },
+      )
+    );
+  }
+  // 弹出对话框
+  Future<bool> showDialog1(BuildContext context,String text) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("提示"),
+          content: Text(text),
+          actions: <Widget>[
+            FlatButton(
+              child: Text("确定"),
+              onPressed: () => Navigator.of(context).pop(), // 关闭对话框
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -116,11 +170,18 @@ class CardHead extends StatelessWidget {
 }
 
 class CardText extends StatelessWidget {
+  String _text;
+
+  CardText(String text){
+    this._text = text;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
-      child: Text('图片的宽度会缩放到显示空间的宽度，高度会按比例缩放，然后居中显示，图片不会变形，超出显示空间部分会被剪裁'),
-      padding: EdgeInsets.fromLTRB(5.0, 0.0, 5.0, 0.0),
+      alignment: Alignment.centerLeft,
+      child: Text(this._text),
+      padding: EdgeInsets.fromLTRB(5.0, 2.0, 5.0, 0.0),
     );
   }
 }
@@ -172,3 +233,4 @@ class CardFoot extends StatelessWidget {
     );
   }
 }
+

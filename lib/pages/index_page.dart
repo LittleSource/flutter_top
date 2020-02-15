@@ -42,6 +42,7 @@ class _IndexState extends State<IndexPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+
     // 将bottomBar上面的按钮图标对应的页面存放起来
     _pageList = <StatefulWidget>[
       HomePage(),
