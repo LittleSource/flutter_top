@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'dart:async';
 
@@ -30,45 +32,10 @@ class DioRequest {
   ///Get请求测试
   static void getHttp() async {
     try {
-      Response response = await Dio().get("http://www.google.cn");
+      Response response = await Dio().get(API_PREFIX);
       print("response$response");
     } catch (e) {
       print(e);
-    }
-  }
-
-  ///Post请求测试
-  static void postHttp<T>(
-      String url, {
-        parameters,
-        Function(T t) onSuccess,
-        Function(String error) onError,
-      }) async {
-
-    ///定义请求参数
-    parameters = parameters ?? {};
-    //参数处理
-    parameters.forEach((key, value) {
-      if (url.indexOf(key) != -1) {
-        url = url.replaceAll(':$key', value.toString());
-      }
-    });
-
-    try {
-      Response response;
-      Dio dio = createInstance();
-      response = await dio.post(url, data: parameters);
-      if (response.statusCode == 200) {
-        if (onSuccess != null) {
-          onSuccess(response.data);
-        }
-      } else {
-        throw Exception('statusCode:${response.statusCode}');
-      }
-      print('响应数据：' + response.toString());
-    } catch (e) {
-      print('请求出错：' + e.toString());
-      onError(e.toString());
     }
   }
 
@@ -81,7 +48,7 @@ class DioRequest {
   static Future<Map> request<T>(String url,
       {parameters,
         method,
-        Function(T t) onSuccess,
+        Function(String data) onSuccess,
         Function(String error) onError}) async {
     parameters = parameters ?? {};
     method = method ?? 'GET';
@@ -93,31 +60,24 @@ class DioRequest {
       }
     });
 
-    /// 打印:请求地址-请求方式-请求参数
-    print('请求地址：【' + method + '  ' + url + '】');
-    print('请求参数：' + parameters.toString());
-
     Dio dio = createInstance();
     //请求结果
-    var result;
     try {
-      Response response = await dio.request(url,
-          data: parameters, options: new Options(method: method));
-      result = response.data;
+      Response response = await dio.request(url, data: parameters, options: new Options(method: method));
       if (response.statusCode == 200) {
-        if (onSuccess != null) {
-          onSuccess(result);
+        var data = json.decode(response.data);
+        if (data["code"] == 200) {
+          onSuccess(data);
+        }else{
+          onError(data["msg"]);
         }
       } else {
         throw Exception('statusCode:${response.statusCode}');
       }
-      print('响应数据：' + response.toString());
     } on DioError catch (e) {
       print('请求出错：' + e.toString());
       onError(e.toString());
     }
-
-    return result;
   }
 
   /// 创建 dio 实例对象
@@ -137,7 +97,6 @@ class DioRequest {
 
       dio = new Dio(options);
     }
-
     return dio;
   }
 

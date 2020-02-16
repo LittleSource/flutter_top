@@ -1,6 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:transparent_image/transparent_image.dart';
+import 'package:flutter_easyrefresh/easy_refresh.dart';
+import 'package:flutter_easyrefresh/ball_pulse_footer.dart';
+import 'package:flutter_top/utils/dio_request.dart';
 
 class ConfessionList extends StatefulWidget {
   @override
@@ -8,23 +11,23 @@ class ConfessionList extends StatefulWidget {
 }
 
 class _ConfessionListState extends State<ConfessionList>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin,AutomaticKeepAliveClientMixin{
 
-  TabController _tabController;//需要定义一个Controller
-  List<Widget> _tabs;
-  List<String> list = [];
+  List<String> _tabText = ['推荐','附近','关注'];
+  List<Widget> _tabs = [];
+  TabController _tabController;//tab需要定义一个Controller
+  int _currentIndex = 0;
 
+  @override bool get wantKeepAlive => true;
   @override
   void initState() {
     super.initState();
-
-    //初始化tabs
-    _tabs = [
-      Tab(child: Text('推荐',style: TextStyle(fontSize:16.0))),
-      Tab(child: Text('附近',style: TextStyle(fontSize:16.0))),
-      Tab(child: Text('关注',style: TextStyle(fontSize:16.0)))];
+    // 初始化tabs
+    _tabText.forEach((t) => _tabs.add(Tab(child: Text(t,style: TextStyle(fontSize:16.0)))));
     // 创建tab的Controller
-    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController = TabController(length: _tabText.length, vsync: this);
+    //添加监听tab切换
+    _tabController.addListener(_onTabChanged);
   }
 
   @override
@@ -38,12 +41,7 @@ class _ConfessionListState extends State<ConfessionList>
                 isScrollable: true,
                 indicatorSize: TabBarIndicatorSize.label,
                 labelPadding: EdgeInsets.fromLTRB(15, 4, 15, 1),
-                tabs:_tabs,
-                onTap: (i){
-                  setState(() {
-                    list = [];
-                  });
-                },
+                tabs:_tabs
             ),
           actions: <Widget>[
             IconButton(icon: new Icon(Icons.add), onPressed: () {})
@@ -52,45 +50,115 @@ class _ConfessionListState extends State<ConfessionList>
         body: TabBarView(
               controller: _tabController,
               children: [
-                _buildRefreshIndicator(),
-                _buildRefreshIndicator(),
-                _buildRefreshIndicator(),
+                TabPage(TabType: 1),
+                TabPage(TabType: 2),
+                TabPage(TabType: 3),
               ],
         )
     );
   }
-  Widget _buildRefreshIndicator(){
-    return RefreshIndicator(
-        onRefresh: _onRefresh,
-        displacement: 25.0,
-        color: Colors.orange,
-        child: _buildCardList()
+  //tab改变事件
+  _onTabChanged() {
+    if (_tabController.indexIsChanging) {
+      if (this.mounted) {
+          setState(() {
+            _currentIndex = _tabController.index;
+          });
+      }
+    }
+  }
+}
+
+class TabPage extends StatefulWidget {
+  int TabType;
+  TabPage({this.TabType});
+  @override
+  _TabPageState createState() => new _TabPageState(TabType: this.TabType);
+}
+
+class _TabPageState extends State<TabPage> with AutomaticKeepAliveClientMixin{
+  int TabType;//页面类型 推荐or附近or关注
+  List<String> list = [];//列表数据
+  EasyRefreshController _refreshController = EasyRefreshController();
+
+  _TabPageState({this.TabType});
+  @override
+  Widget build(BuildContext context) {
+    // TODO: implement build
+    return EasyRefresh(
+      controller: _refreshController,
+      header: ClassicalHeader(refreshReadyText:"该松手啦!",bgColor: Colors.yellow,infoColor: Colors.black45),
+      footer: BallPulseFooter(color: Colors.yellow),
+      child: _buildCardList(),
+      onRefresh: () async{
+        await _onRefresh();
+      },
+      onLoad: () async {
+        await _onLoadMore;
+      },
     );
   }
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    showRefreshLoading();
+    print(this.TabType);
+  }
+  @override
+  // TODO: implement wantKeepAlive
+  bool get wantKeepAlive => true;
 
+  //构建cardList
   Widget _buildCardList() {
     List<Widget> cardList = [];
-    list.forEach((text) => cardList.add(new ConfessionCard(text)));
+    list.forEach((text) => cardList.add(ConfessionCard(text: text,)));
     return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         children: cardList
     );
   }
-  Future<Null> _onRefresh() async {
+
+  showRefreshLoading() {
+    new Future.delayed(const Duration(seconds: 0), () {
+      _refreshController.callRefresh();
+      return true;
+    });
+  }
+  //下拉刷新函数
+  void _onRefresh() async {
+    await DioRequest.request(
+      "http://ic.snssdk.com/2/article/v25/stream/?count=20&min_behot_time=1504621638&bd_latitude=4.9E-324&bd_longitude=4.9E-324&bd_loc_time=1504622133&loc_mode=5&loc_time=1504564532&latitude=35.00125&longitude=113.56358166666665&city=%E7%84%A6%E4%BD%9C&lac=34197&cid=23201&iid=14534335953&device_id=38818211465&ac=wifi&channel=baidu&aid=13&app_name=news_article&version_code=460&device_platform=android&device_type=SM-E7000&os_api=19&os_version=4.4.2&uuid=357698010742401&openudid=74f06d2f9d8c9664%20",
+      onSuccess: (data){
+        print(data);
+      }
+    );
     await Future.delayed(Duration(seconds: 3), () {
-      print('refresh');
       setState(() {
         list = List.generate(10, (i) => '哈喽$i,我是新刷新的该方法只有两个参数，含义见注释该方法返回一个'+DateTime.now().toString());
       });
+      print("桑沙溪你");
+    });
+  }
+  void _onLoadMore() async {
+    await Future.delayed(Duration(seconds: 3), () {
+      setState(() {
+        setState(() {
+          list.addAll(List.generate(10, (i) => '含义见注释该方法返回一个'));
+        });
+      });
+      print("桑沙溪你");
     });
   }
 }
 
+/**
+ * 表白卡片
+ */
 class ConfessionCard extends StatelessWidget {
   String _text;
 
-  ConfessionCard(String text){
-    this._text = text;
-  }
+  ConfessionCard({String text}) : _text = text;
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +169,7 @@ class ConfessionCard extends StatelessWidget {
           child: new Column(
             children: [
               new CardHead(),
-              new CardText(this._text),
+              new CardText(_text),
               new CardImg(),
               new CardFoot()
             ],
@@ -156,11 +224,39 @@ class CardHead extends StatelessWidget {
         ]),
         Expanded(
             child: Align(
-              child: IconButton(
-                  icon: Icon(Icons.keyboard_arrow_down),
-                  color: Colors.black54,
-                  onPressed: () {},
-                  alignment: Alignment.centerRight
+              child: PopupMenuButton<String>(
+                  initialValue: "",
+                  child: IconButton(icon: Icon(Icons.keyboard_arrow_down),onPressed: null,),
+                  onSelected: (String string){
+                    print(string.toString());
+                  },
+                  itemBuilder: (BuildContext context) => <PopupMenuItem<String>>[
+                    PopupMenuItem(
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: <Widget>[
+                            Icon(Icons.favorite_border),
+                            Text("关注")
+                          ]),
+                      value: "关注",
+                    ),PopupMenuItem(
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: <Widget>[
+                            Icon(Icons.share),
+                            Text("分享")
+                          ]),
+                      value: "分享",
+                    ),PopupMenuItem(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: <Widget>[
+                          Icon(Icons.notifications_none),
+                          Text("举报")
+                      ]),
+                      value: "举报",
+                    )
+                  ]
               ),
               alignment: Alignment.centerRight,
             ))

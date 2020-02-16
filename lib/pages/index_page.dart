@@ -1,6 +1,8 @@
 //构建底部bar和切换bar的页面
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_easyrefresh/easy_refresh.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_top/pages/confession.dart';
 import 'package:flutter_top/pages/home.dart';
 import 'package:flutter_top/pages/message.dart';
@@ -12,11 +14,11 @@ class IndexPage extends StatefulWidget {
 }
 
 // 要让主页面 Index 支持动效，要在它的定义中附加mixin类型的对象TickerProviderStateMixin
-class _IndexState extends State<IndexPage> with TickerProviderStateMixin {
+class _IndexState extends State<IndexPage> with TickerProviderStateMixin{
   int _currentIndex = 0; // 当前界面的索引值
+  PageController _controller;
   List<StatefulWidget> _pageList; // 用来存放我们的图标对应的页面
-  StatefulWidget _currentPage; // 当前的显示页面
-  var _tabNavList = [
+  final _tabNavList = [
     //bar的图标相关参数
     {
       "title": "首页",
@@ -42,7 +44,6 @@ class _IndexState extends State<IndexPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-
     // 将bottomBar上面的按钮图标对应的页面存放起来
     _pageList = <StatefulWidget>[
       HomePage(),
@@ -50,7 +51,7 @@ class _IndexState extends State<IndexPage> with TickerProviderStateMixin {
       MessagePage(),
       MinePage(),
     ];
-    _currentPage = _pageList[_currentIndex];
+    _controller = PageController(initialPage: 0);
   }
 
   @override
@@ -71,16 +72,27 @@ class _IndexState extends State<IndexPage> with TickerProviderStateMixin {
       currentIndex: _currentIndex, // 当前点击的索引值
       type: BottomNavigationBarType.fixed, // 设置底部导航工具栏的类型：fixed 固定
       onTap: (int index) {
-        setState(() {
-          // 点击之后，需要触发的逻辑事件
-          _currentIndex = index;
-          _currentPage = _pageList[_currentIndex];
-        });
+        _controller.jumpToPage(index);
       },
     );
     return MaterialApp(
+      localizationsDelegates: [
+        GlobalEasyRefreshLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: [
+        const Locale('en', 'US'), // 美国英语
+        const Locale('zh', 'CN'), // 中文简体
+      ],
       home: Scaffold(
-        body: Center(child: _currentPage), // 动态的展示我们当前的页面
+        body:PageView.builder(
+            physics: NeverScrollableScrollPhysics(),//viewPage禁止左右滑动
+            onPageChanged: _pageChange,
+            controller: _controller,
+            itemCount: _pageList.length,
+            itemBuilder: (context, index) => _pageList[index]
+        ),
         bottomNavigationBar: bottomNavigationBar, // 底部工具栏
       ),
       theme: ThemeData(
@@ -89,7 +101,14 @@ class _IndexState extends State<IndexPage> with TickerProviderStateMixin {
       ),
     );
   }
-
+  //监听页面切换事件
+  void _pageChange(int index) {
+    setState(() {
+      if (index != _currentIndex) {
+        _currentIndex = index;
+      }
+    });
+  }
   //根据索引判断icon图片返回Image Widget
   Widget _barItemIcon(index, selectedImage, normalImage) {
     return Image.asset(
